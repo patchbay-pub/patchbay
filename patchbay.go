@@ -10,8 +10,6 @@ import (
         "path"
 )
 
-const NumWorkers = 4
-
 var ValidExt = [...]string{".html", ".js", ".ico", ".css", ".jpg", ".svg"}
 
 type Hoster struct {
@@ -19,10 +17,11 @@ type Hoster struct {
         dir string
         client *http.Client
         authToken string
+        numWorkers int
 }
 
 func (h *Hoster) Start() {
-        h.HostDir(h.rootChannel, h.dir, NumWorkers)
+        h.HostDir(h.rootChannel, h.dir, h.numWorkers)
 }
 
 func (h *Hoster) HostDir(channel string, dirPath string, numWorkers int) {
@@ -34,15 +33,15 @@ func (h *Hoster) HostDir(channel string, dirPath string, numWorkers int) {
 
         for _, entry := range entries {
                 if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
-                        h.HostDir(channel + "/" + entry.Name(), path.Join(dirPath, entry.Name()), NumWorkers)
+                        h.HostDir(channel + "/" + entry.Name(), path.Join(dirPath, entry.Name()), h.numWorkers)
                 } else {
                         if validExt(entry.Name()) {
-                                h.HostFile(channel + "/" + entry.Name(), path.Join(dirPath, entry.Name()), NumWorkers)
+                                h.HostFile(channel + "/" + entry.Name(), path.Join(dirPath, entry.Name()), h.numWorkers)
                         }
                         // also host index files directly on the path
                         if entry.Name() == "index.html" {
-                                //h.HostFile(channel, path.Join(dirPath, entry.Name()), NumWorkers)
-                                h.HostFile(channel + "/", path.Join(dirPath, entry.Name()), NumWorkers)
+                                //h.HostFile(channel, path.Join(dirPath, entry.Name()), h.numWorkers)
+                                h.HostFile(channel + "/", path.Join(dirPath, entry.Name()), h.numWorkers)
                         }
                 }
         }
@@ -111,6 +110,11 @@ func (h *HosterBuilder) RootChannel(channel string) *HosterBuilder {
 
 func (h *HosterBuilder) AuthToken(token string) *HosterBuilder {
         h.hoster.authToken = token
+        return h
+}
+
+func (h *HosterBuilder) NumWorkers(n int) *HosterBuilder {
+        h.hoster.numWorkers = n
         return h
 }
 
