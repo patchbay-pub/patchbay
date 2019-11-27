@@ -4,7 +4,7 @@ import (
         "fmt"
         "flag"
         "os"
-        "github.com/anderspitman/patchbay"
+        "github.com/patchbay-pub/patchbay"
 )
 
 func main() {
