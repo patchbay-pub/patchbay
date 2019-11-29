@@ -57,7 +57,7 @@ func (h *Hoster) HostFile(channel string, path string, numWorkers int) {
                                         log.Fatal(err)
                                 }
 
-                                req, err := http.NewRequest("POST", channel, file)
+                                req, err := http.NewRequest("POST", channel + "?responder=true", file)
                                 if err != nil {
                                         log.Fatal(err)
                                 }
