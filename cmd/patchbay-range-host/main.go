@@ -76,7 +76,7 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
                 }
         }
 
-        doubleclutchChannel := resp.Header.Get("Patchbay-Doubleclutch-Channel")
+        doubleclutchChannel := resp.Header.Get("Pb-Doubleclutch-Channel")
 
         reqStr := rootChannel + doubleclutchChannel + "?server=true"
         fmt.Println(reqStr)
@@ -109,7 +109,7 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
 
                 req.Header.Add(ResponsePrefix + "Content-Range", buildRangeHeader(r, fileInfo.Size()))
                 req.Header.Add(ResponsePrefix + "Content-Length", fmt.Sprintf("%d", r.End - r.Start))
-                req.Header.Add("Patchbay-Status", "206")
+                req.Header.Add("Pb-Status", "206")
         } else {
                 req, err = http.NewRequest("POST", reqStr, file)
                 if err != nil {
