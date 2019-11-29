@@ -49,7 +49,7 @@ func main() {
 func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
 
         filename := path.Base(*filePath)
-        url := rootChannel + "/" + filename + "?server=true&doubleclutch=true"
+        url := rootChannel + "/" + filename + "?responder=true&doubleclutch=true"
         fmt.Println(url)
         resp, err := client.Post(url, "", nil)
         if err != nil {
@@ -63,22 +63,21 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
         }
         fmt.Println(string(body))
 
-        //patchbayClientHeaders := make(map[string]string)
-        patchbayClientHeaders := &http.Header{}
+        patchbayRequesterHeaders := &http.Header{}
 
         for k, vList := range resp.Header {
                 if strings.HasPrefix(k, RequestPrefix) {
                         // strip the prefix
                         headerName := k[len(RequestPrefix):]
                         for _, v := range vList {
-                                patchbayClientHeaders.Add(headerName, v)
+                                patchbayRequesterHeaders.Add(headerName, v)
                         }
                 }
         }
 
         doubleclutchChannel := resp.Header.Get("Pb-Doubleclutch-Channel")
 
-        reqStr := rootChannel + doubleclutchChannel + "?server=true"
+        reqStr := rootChannel + doubleclutchChannel + "?responder=true"
         fmt.Println(reqStr)
 
         file, err := os.Open(*filePath)
@@ -92,7 +91,7 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
                 log.Fatal(err)
         }
 
-        rangeHeader := patchbayClientHeaders.Get("Range")
+        rangeHeader := patchbayRequesterHeaders.Get("Range")
         if rangeHeader != "" {
 
 
