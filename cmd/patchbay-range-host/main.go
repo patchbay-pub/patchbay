@@ -121,7 +121,6 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
         }
 
         req.Header.Add(ResponsePrefix + "Accept-Ranges", "bytes")
-        req.Header.Add(ResponsePrefix + "Content-Type", "video/mp4")
         //req.Header.Add(ResponsePrefix + "Content-Type", "application/octet-stream; charset=utf-8")
 
         resp, err = client.Do(req)
