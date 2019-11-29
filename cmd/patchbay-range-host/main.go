@@ -26,12 +26,15 @@ type HttpRange struct {
 
 func main() {
 
-        rootChannel := "http://localhost:9001"
-
         rand.Seed(time.Now().Unix())
 
         filePath := flag.String("path", "", "File to host")
+        serverFlag := flag.String("server", "http://localhost:9001", "patchbay server")
+        rootChannelFlag := flag.String("root", "/", "Root patchbay channel")
         flag.Parse()
+
+        server := *serverFlag
+        rootChannel := *rootChannelFlag
 
         client := &http.Client{}
 
@@ -41,7 +44,7 @@ func main() {
         for i := 0; i < numWorkers; i++ {
                 go func(index int) {
                         for {
-                                serveRangeFile(client, rootChannel, filePath)
+                                serveRangeFile(client, server, rootChannel, filePath)
                                 log.Println("Served from worker %d", index)
                         }
                 }(i)
@@ -50,10 +53,10 @@ func main() {
         <-doneChan
 }
 
-func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
+func serveRangeFile(client *http.Client, server string, rootChannel string, filePath *string) {
 
         filename := path.Base(*filePath)
-        url := rootChannel + "/" + filename + "?responder=true&switch=true"
+        url := server + rootChannel + "/" + filename + "?responder=true&switch=true"
         fmt.Println(url)
         randomChannelId := genRandomChannelId()
         randReader := strings.NewReader(randomChannelId)
@@ -81,7 +84,7 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
                 }
         }
 
-        reqStr := rootChannel + "/" + randomChannelId + "?responder=true"
+        reqStr := server + "/" + randomChannelId + "?responder=true"
         fmt.Println(reqStr)
 
         file, err := os.Open(*filePath)
