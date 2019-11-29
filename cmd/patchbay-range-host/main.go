@@ -13,8 +13,8 @@ import (
         "path"
 )
 
-const RequestPrefix = "Patchbay-Request-"
-const ResponsePrefix = "Patchbay-Response-"
+const RequestPrefix = "Pb-Req-"
+const ResponsePrefix = "Pb-Res-"
 
 type HttpRange struct {
         Start int64 `json:"start"`
