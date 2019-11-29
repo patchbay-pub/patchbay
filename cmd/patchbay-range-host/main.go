@@ -10,6 +10,7 @@ import (
         "strings"
         "strconv"
         "flag"
+        "path"
 )
 
 const RequestPrefix = "Patchbay-Request-"
@@ -30,13 +31,27 @@ func main() {
 
         client := &http.Client{}
 
-        for {
-                serveRangeFile(client, rootChannel, filePath)
+        doneChan := make(chan struct{})
+
+        numWorkers := 4
+        for i := 0; i < numWorkers; i++ {
+                go func(index int) {
+                        for {
+                                serveRangeFile(client, rootChannel, filePath)
+                                log.Println("Served from worker %d", index)
+                        }
+                }(i)
         }
+
+        <-doneChan
 }
 
 func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
-        resp, err := client.Post(rootChannel + "/vid.webm?server=true&doubleclutch=true", "", nil)
+
+        filename := path.Base(*filePath)
+        url := rootChannel + "/" + filename + "?server=true&doubleclutch=true"
+        fmt.Println(url)
+        resp, err := client.Post(url, "", nil)
         if err != nil {
                 log.Fatal(err)
         }
@@ -94,18 +109,20 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
 
                 req.Header.Add(ResponsePrefix + "Content-Range", buildRangeHeader(r, fileInfo.Size()))
                 req.Header.Add(ResponsePrefix + "Content-Length", fmt.Sprintf("%d", r.End - r.Start))
+                req.Header.Add("Patchbay-Status", "206")
         } else {
                 req, err = http.NewRequest("POST", reqStr, file)
                 if err != nil {
                         log.Fatal(err)
                 }
 
-                req.Header.Add(ResponsePrefix + "Content-Range", fmt.Sprintf("bytes 0-%d/%d", fileInfo.Size() - 1, fileInfo.Size()))
+                //req.Header.Add(ResponsePrefix + "Content-Range", fmt.Sprintf("bytes 0-%d/%d", fileInfo.Size() - 1, fileInfo.Size()))
                 req.Header.Add(ResponsePrefix + "Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
         }
 
         req.Header.Add(ResponsePrefix + "Accept-Ranges", "bytes")
-        req.Header.Add(ResponsePrefix + "Content-Type", "video/webm; charset=utf-8")
+        req.Header.Add(ResponsePrefix + "Content-Type", "video/mp4")
+        //req.Header.Add(ResponsePrefix + "Content-Type", "application/octet-stream; charset=utf-8")
 
         resp, err = client.Do(req)
         if err != nil {
@@ -152,9 +169,9 @@ func parseRange(header string, size int64) *HttpRange {
 func buildRangeHeader(r *HttpRange, size int64) string {
 
         if r.End == 0 {
-                r.End = size - 1
+                r.End = size
         }
 
-        contentRange := fmt.Sprintf("bytes %d-%d/%d", r.Start, r.End, size)
+        contentRange := fmt.Sprintf("bytes %d-%d/%d", r.Start, r.End - 1, size)
         return contentRange
 }
