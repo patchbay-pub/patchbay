@@ -11,6 +11,8 @@ import (
         "strconv"
         "flag"
         "path"
+        "math/rand"
+        "time"
 )
 
 const RequestPrefix = "Pb-Req-"
@@ -25,6 +27,8 @@ type HttpRange struct {
 func main() {
 
         rootChannel := "http://localhost:9001"
+
+        rand.Seed(time.Now().Unix())
 
         filePath := flag.String("path", "", "File to host")
         flag.Parse()
@@ -49,9 +53,11 @@ func main() {
 func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
 
         filename := path.Base(*filePath)
-        url := rootChannel + "/" + filename + "?responder=true&doubleclutch=true"
+        url := rootChannel + "/" + filename + "?responder=true&switch=true"
         fmt.Println(url)
-        resp, err := client.Post(url, "", nil)
+        randomChannelId := genRandomChannelId()
+        randReader := strings.NewReader(randomChannelId)
+        resp, err := client.Post(url, "", randReader)
         if err != nil {
                 log.Fatal(err)
         }
@@ -75,9 +81,7 @@ func serveRangeFile(client *http.Client, rootChannel string, filePath *string) {
                 }
         }
 
-        doubleclutchChannel := resp.Header.Get("Pb-Doubleclutch-Channel")
-
-        reqStr := rootChannel + doubleclutchChannel + "?responder=true"
+        reqStr := rootChannel + "/" + randomChannelId + "?responder=true"
         fmt.Println(reqStr)
 
         file, err := os.Open(*filePath)
@@ -172,4 +176,13 @@ func buildRangeHeader(r *HttpRange, size int64) string {
 
         contentRange := fmt.Sprintf("bytes %d-%d/%d", r.Start, r.End - 1, size)
         return contentRange
+}
+
+const channelChars string = "0123456789abcdefghijkmnpqrstuvwxyz";
+func genRandomChannelId() string {
+        channelId := ""
+        for i := 0; i < 32; i++ {
+                channelId += string(channelChars[rand.Intn(len(channelChars))])
+        }
+        return channelId
 }
