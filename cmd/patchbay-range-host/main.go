@@ -29,7 +29,7 @@ func main() {
         rand.Seed(time.Now().Unix())
 
         filePath := flag.String("path", "", "File to host")
-        serverFlag := flag.String("server", "http://localhost:9001", "patchbay server")
+        serverFlag := flag.String("server", "https://patchbay.pub", "patchbay server")
         rootChannelFlag := flag.String("root", "/", "Root patchbay channel")
         flag.Parse()
 
@@ -40,12 +40,17 @@ func main() {
 
         doneChan := make(chan struct{})
 
-        numWorkers := 4
+        // This isn't the max number of connections, because it forks a
+        // goroutine below. This is the max number of long pollers waiting for
+        // new connections. I would guess 2-4 should be sufficient for pretty
+        // heavy traffic.
+        numWorkers := 2
         for i := 0; i < numWorkers; i++ {
                 go func(index int) {
                         for {
-                                serveRangeFile(client, server, rootChannel, filePath)
-                                log.Println("Served from worker %d", index)
+                                log.Println("Serve from worker", index)
+                                serveRangeFile(client, server, rootChannel, filePath, index)
+                                log.Println("Fin from worker", index)
                         }
                 }(i)
         }
@@ -53,24 +58,39 @@ func main() {
         <-doneChan
 }
 
-func serveRangeFile(client *http.Client, server string, rootChannel string, filePath *string) {
+func serveRangeFile(client *http.Client, server string, rootChannel string, filePath *string, workerId int) {
+
+        //state := ""
+        //done := false
+
+        //go func() {
+        //        for {
+        //                fmt.Println(workerId, state)
+        //                if done {
+        //                        break
+        //                }
+        //                time.Sleep(time.Second * 1)
+        //        }
+        //}()
 
         filename := path.Base(*filePath)
         url := server + rootChannel + "/" + filename + "?responder=true&switch=true"
-        fmt.Println(url)
+        fmt.Println(url, workerId)
         randomChannelId := genRandomChannelId()
         randReader := strings.NewReader(randomChannelId)
+
+        //state = "waiting " + url
         resp, err := client.Post(url, "", randReader)
         if err != nil {
                 log.Fatal(err)
         }
         defer resp.Body.Close()
 
-        body, err := ioutil.ReadAll(resp.Body)
+        _, err = ioutil.ReadAll(resp.Body)
         if err != nil {
                 log.Fatal(err)
         }
-        fmt.Println(string(body))
+        //fmt.Println(string(body))
 
         patchbayRequesterHeaders := &http.Header{}
 
@@ -85,10 +105,10 @@ func serveRangeFile(client *http.Client, server string, rootChannel string, file
         }
 
         reqStr := server + "/" + randomChannelId + "?responder=true"
-        fmt.Println(reqStr)
+        fmt.Println(reqStr, workerId)
 
         file, err := os.Open(*filePath)
-        defer file.Close()
+        //defer file.Close()
 
         var r *HttpRange
         var req *http.Request
@@ -129,17 +149,33 @@ func serveRangeFile(client *http.Client, server string, rootChannel string, file
         req.Header.Add(ResponsePrefix + "Accept-Ranges", "bytes")
         //req.Header.Add(ResponsePrefix + "Content-Type", "application/octet-stream; charset=utf-8")
 
-        resp, err = client.Do(req)
-        if err != nil {
-                log.Fatal(err)
-        }
+        // TODO: this really might not be safe, but need to move forward.
+        // Think more deeply about this at some point. It was necessary
+        // because when streaming videos, Firefox and Chrome were both
+        // getting in a state where the request was blocked here. I suspect
+        // it was happening because they were opening a connection but never
+        // reading the response (ie while the video was paused). But this
+        // prevented other requesters from accessing the resource. Doing it in
+        // a goroutine like this essentially forks it, so it doesn't matter if
+        // some of them are sitting around doing nothing.
+        go func() {
+                //state = "waiting for data " + reqStr
+                resp, err = client.Do(req)
+                if err != nil {
+                        log.Fatal(err)
+                }
 
-        data, err := ioutil.ReadAll(resp.Body)
-        if err != nil {
-                log.Fatal(err)
-        }
+                data, err := ioutil.ReadAll(resp.Body)
+                if err != nil {
+                        log.Fatal(err)
+                }
 
-        fmt.Println(string(data))
+                fmt.Println(string(data))
+
+                //done = true
+
+                file.Close()
+        }()
 }
 
 func parseRange(header string, size int64) *HttpRange {
